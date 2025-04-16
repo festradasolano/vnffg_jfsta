@@ -14,10 +14,10 @@ import sys
 # SETTINGS
 AX_EXPERIMENT_NAME = "embed_drl_jfsta"
 AX_VERBOSE = False
-# NUM_TRIALS = 50
-NUM_TRIALS = 2
+NUM_TRIALS = 50
+# NUM_TRIALS = 2
 SEED = 1
-NUM_VNFS = 3
+NUM_VNFS = 10
 
 # Build random network and VNFR
 network = build_random_network(seed=SEED)

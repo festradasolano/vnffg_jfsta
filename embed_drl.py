@@ -361,7 +361,6 @@ class DRLRun():
 
         # Run training and return results
         results = self.__run_training(
-            max_episodes=200,  # TODO DELETE
             epsilon=self.EPSILON,
             epsilon_decay=epsilon_decay,
             min_epsilon=self.MIN_EPSILON,
