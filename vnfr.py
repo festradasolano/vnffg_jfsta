@@ -30,7 +30,7 @@ MIN_ACCEPTABLE_DELAY = 150
 MAX_ACCEPTABLE_DELAY = 600  # (Alleg et al., 2017)
 # MIN_ACCEPTABLE_DELAY = 1800
 # MAX_ACCEPTABLE_DELAY = 2000  # (Jahromi et al., 2018)
-MIN_ACCEPTABLE_THROUGHPUT = 0.8
+MIN_ACCEPTABLE_THROUGHPUT = 1
 
 
 class VNF:
@@ -73,8 +73,14 @@ class VNF:
         self.processing_delay = processing_delay
 
 class VNFR:
+    """
+    TODO
+    """
 
     def __init__(self, source_node: str, target_node: str, vnfs: "dict[str, VNF]", dependencies: "dict[str, str]", data_rate: int, max_delay: int):
+        """
+        TODO
+        """
         self.source_node = source_node
         self.target_node = target_node
         self.vnfs: dict[str, VNF] = vnfs
@@ -95,21 +101,23 @@ class VNFR:
         for vnf in vnfs.values():
             throughput *= vnf.ratio_out2in
             self.vnfs_delay += vnf.processing_delay
-        print("****", throughput)
         self.min_throughput = throughput * MIN_ACCEPTABLE_THROUGHPUT
     
     def info(self):
         pass
 
 
-def build_random_vnfr(nodes_id: list, seed: int = None) -> VNFR:
+def build_random_vnfr(nodes_id: list[str], num_vnfs: int = None, seed: int = None) -> VNFR:
     """Builds a random VNF request (VNFR).
 
     Parameters
     ----------
-    nodes_id: list
+    nodes_id: list[str]
         The list of Node IDs in the substrate network; used to randomly select
         the ingress and egress nodes of the VNFR
+    num_vnfs : int, optional
+        The number of VNFs to add into the VNFR; if not given, the function
+        computes a random number of VNFs
     seed : int, optional
         The seed for the random generator
     
@@ -124,10 +132,11 @@ def build_random_vnfr(nodes_id: list, seed: int = None) -> VNFR:
     # Randomly select the ingress and egress nodes
     source_node, target_node = rs.choice(nodes_id, size=2, replace=False)
 
-    # Randomly build set of VNFs
-    num_vnfs = rs.randint(MIN_NUM_VNFS, MAX_NUM_VNFS+1)
+    # Randomly build set of VNFs using number of VNFs, if given
+    if num_vnfs is None:
+        num_vnfs = rs.randint(MIN_NUM_VNFS, MAX_NUM_VNFS+1)
     vnfs: dict[str, VNF] = dict()
-    for i in range(num_vnfs):
+    for i in range(1, num_vnfs+1):
         vnf_id = "f" + str(i)
         vnf_ratio_out2in = rs.uniform(VNF_MIN_RATIO_OUT2IN, VNF_MAX_RATIO_OUT2IN)
         vnf_cpu_demand_per_bw = rs.randint(VNF_MIN_CPU_DEMAND_PER_BW, VNF_MAX_CPU_DEMAND_PER_BW+1)
@@ -138,7 +147,7 @@ def build_random_vnfr(nodes_id: list, seed: int = None) -> VNFR:
     # Randomly build dependencies
     dependencies: dict[str, str] = dict()
     vnfs_in_d = [-1]
-    for i in range(num_vnfs):
+    for i in range(1, num_vnfs+1):
         vnf_id = "f" + str(i)
         vnf_depends_on = rs.choice(vnfs_in_d)
         if vnf_depends_on == -1:
