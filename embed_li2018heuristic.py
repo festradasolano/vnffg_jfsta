@@ -67,17 +67,17 @@ class Li2018Embedding(Embedding):
                 return False
             
             # Embed VNF in node
-            self.__embed_node_vnf(vnf_id, node_embed.id, vnf_cpu_demand)
+            self.embed_vnf_node(vnf_id, node_embed.id, vnf_cpu_demand)
             
             # Embed shortest path between VNF source node and embedding node, using actual data rate
-            source_rate.actual = self._embed_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
+            source_rate.actual = self.embed_vnf_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
 
             # Update source node and source rate
             source_node = node_embed.id
             source_rate.update(vnf.ratio_out2in)
 
         # Embed shortest path between last VNF embedding node and VNFR target node, using actual data rate
-        source_rate.actual = self._embed_shortest_path(source_node, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual)
+        source_rate.actual = self.embed_vnf_shortest_path(source_node, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual)
         self.throughput = source_rate.actual
         self.delay += vnfr.vnfs_delay
         return True
@@ -96,14 +96,14 @@ class Li2018Embedding(Embedding):
 
             # Embed VNF in node if found; otherwise, split VNF
             if node_embed is not None:
-                self.__embed_node_vnf(vnf_id, node_embed.id, vnf_cpu_demand)
+                self.embed_vnf_node(vnf_id, node_embed.id, vnf_cpu_demand)
 
                 # Embed shortest path between VNF source node and embedding node, using actual rate
-                source_rate.actual = self._embed_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
+                source_rate.actual = self.embed_vnf_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
                 
                 # If split source, embed shortest path between VNF split source node and embedding node, using actual split rate
                 if source_node_split is not None:
-                    source_rate.actual_split = self._embed_shortest_path(source_node_split, node_embed.id, network, vnf_id, source_rate.actual_split)
+                    source_rate.actual_split = self.embed_vnf_shortest_path(source_node_split, node_embed.id, network, vnf_id, source_rate.actual_split)
                 
                 # Update source node and source rate
                 source_node = node_embed.id
@@ -139,15 +139,15 @@ class Li2018Embedding(Embedding):
                         return False
                 
                 # Embed VNF in split nodes
-                self.__embed_node_vnf(vnf_id, node_embed.id, vnf_cpu)
-                self.__embed_node_vnf(vnf_id, node_embed_split.id, vnf_cpu_split)
+                self.embed_vnf_node(vnf_id, node_embed.id, vnf_cpu)
+                self.embed_vnf_node(vnf_id, node_embed_split.id, vnf_cpu_split)
 
                 # Embed paths
-                source_rate.actual = self._embed_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
+                source_rate.actual = self.embed_vnf_shortest_path(source_node, node_embed.id, network, vnf_id, source_rate.actual)
                 if source_node_split is None:
-                    source_rate.actual_split = self._embed_shortest_path(source_node, node_embed_split.id, network, vnf_id, source_rate.actual_split)
+                    source_rate.actual_split = self.embed_vnf_shortest_path(source_node, node_embed_split.id, network, vnf_id, source_rate.actual_split)
                 else:
-                    source_rate.actual_split = self._embed_shortest_path(source_node_split, node_embed_split.id, network, vnf_id, source_rate.actual_split)
+                    source_rate.actual_split = self.embed_vnf_shortest_path(source_node_split, node_embed_split.id, network, vnf_id, source_rate.actual_split)
                 
                 # Update source node and source rate
                 source_node = node_embed.id
@@ -155,22 +155,22 @@ class Li2018Embedding(Embedding):
                 source_rate.update(vnf.ratio_out2in)
 
         # Embed shortest path between last VNF embedding node(s) and VNFR target node, using actual data rate
-        source_rate.actual = self._embed_shortest_path(source_node, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual)
+        source_rate.actual = self.embed_vnf_shortest_path(source_node, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual)
         if source_node_split is not None:
-            source_rate.actual_split = self._embed_shortest_path(source_node_split, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual_split)
+            source_rate.actual_split = self.embed_vnf_shortest_path(source_node_split, vnfr.target_node, network, self.VNFR_TARGET_KEY, source_rate.actual_split)
         source_rate.update()
         source_rate.join()
         self.throughput = source_rate.actual_total
         self.delay += vnfr.vnfs_delay
         return True
     
-    def __embed_node_vnf(self, vnf_id: str, node_id: str, vnf_cpu_demand: int):
-        """
-        TODO
-        """
-        self.embedding_vnfs[vnf_id][node_id] = []
-        self.allocated_node_cpus[node_id][vnf_id] = vnf_cpu_demand
-        self.allocated_node_cpus[node_id][self.TOTAL_KEY] += vnf_cpu_demand
+    # def _embed_node_vnf(self, vnf_id: str, node_id: str, vnf_cpu_demand: int):
+    #     """
+    #     TODO
+    #     """
+    #     self.embedding_vnfs[vnf_id][node_id] = []
+    #     self.allocated_node_cpus[node_id][vnf_id] = vnf_cpu_demand
+    #     self.allocated_node_cpus[node_id][self.TOTAL_KEY] += vnf_cpu_demand
     
     def __find_embedding_node(self, network: Network, source_node: str, vnf_cpu_demand: int) -> NodeEmbed:
         """

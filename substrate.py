@@ -52,6 +52,7 @@ MAX_HOPS = 4
 # LINK_TUPLES = [
 #     (1, 2), (1, 3), (1, 4), (2, 3), (2, 5)
 # ]
+# MAX_HOPS = 2
 # -----------------------------------------------------------------------------
 
 
@@ -170,7 +171,7 @@ class Network:
         Prints the information of the Network, including Nodes and Links
     """
 
-    def __init__(self, nodes: dict, links: dict):
+    def __init__(self, nodes: "dict[str, Node]", links: "dict[str, Link]"):
         """
         Parameters
         ----------
@@ -181,11 +182,11 @@ class Network:
             A collection of key:value pairs, where the key is the Link ID and
             the value is the corresponding Link object
         """
-        self.nodes = nodes
-        self.links = links
+        self.nodes: dict[str, Node] = nodes
+        self.links: dict[str, Link] = links
 
         # Build list of VNF capable nodes
-        self.vnf_capable_nodes = []
+        self.vnf_capable_nodes: list[Node] = []
         for node_id in self.nodes:
             node = self.nodes[node_id]
             if node.is_vnf_capable and node.cpu_capacity > NODE_MIN_CPU_CAPACITY:
@@ -193,7 +194,7 @@ class Network:
 
         # Build map of neighbors, which associates each Node ID with a list of
         # neighbors Node ID
-        self.neighbors = dict()
+        self.neighbors: dict[str, list[str]] = dict()
         for node_id in self.nodes:
             self.neighbors[node_id] =[]
         for link in self.links.values():
@@ -203,16 +204,16 @@ class Network:
         # Map of node neighbors per number of hops for each node, which
         # associates the Node ID with a map that associates the number of hops
         # with the list of reachable neighbors Node ID
-        self.nodes_per_hops = dict()
+        self.nodes_per_hops: dict[str, dict[int, list]] = dict()
 
         # Map of paths between a pair of nodes, which associates a tuple
         # (Node ID, Node ID) with the list of paths between them
-        self.node_pair_paths = dict()
+        self.node_pair_paths: dict[tuple[str, str], list] = dict()
 
         # Build the maps of neighbors per hops and paths between nodes
-        self.__build_hops_paths(MAX_HOPS)
+        self.__build_hops_paths()
 
-    def __build_hops_paths(self, max_hops):
+    def __build_hops_paths(self, max_hops: int = MAX_HOPS):
         """
         TODO
         """
@@ -236,7 +237,7 @@ class Network:
             # Call recursive function
             self.__build_hops_paths_util(node_id, node_id, visited, 0, max_hops, [])
 
-    def __build_hops_paths_util(self, source, current, visited, hop, max_hops, path):
+    def __build_hops_paths_util(self, source: str, current: str, visited: dict[str, bool], hop: int, max_hops: int, path: list):
         """
         TODO
         """
@@ -267,7 +268,20 @@ class Network:
         # Mark current node as not visited
         visited[current] = False
 
-    def get_nodes_id(self) -> list:
+    def get_neighbors_per_node(self, max_hops: int = MAX_HOPS):
+        """
+        TODO
+        """
+        neighbors_per_node: dict[str, set[str]] = dict()
+        for node_id in self.nodes_per_hops:
+            neighbors = set()
+            for hop in range(1, max_hops+1):
+                for neighbor_id in self.nodes_per_hops[node_id][hop]:
+                    neighbors.add(neighbor_id)
+            neighbors_per_node[node_id] = neighbors
+        return neighbors_per_node
+    
+    def get_nodes_id(self) -> "list[str]":
         """
         Returns a list of all the Nodes ID.
 
@@ -282,8 +296,39 @@ class Network:
         """
         return list(self.nodes.keys())
     
-    def get_node_pair_paths(self, source_node, target_node) -> list:
-        raise NotImplementedError("Not implemented")
+    def get_node_pair_paths(self, max_hops: int = MAX_HOPS) -> tuple[dict[tuple[str, str], list], int]:
+        """
+        TODO
+        """
+        max_paths_per_node_pair = 0
+        node_pair_paths = dict()
+        for node_pair in self.node_pair_paths:
+            paths_per_node_pair = list()
+            for path in self.node_pair_paths[node_pair]:
+                if len(path) <= max_hops:
+                    paths_per_node_pair.append(path)
+            node_pair_paths[node_pair] = paths_per_node_pair
+
+            if len(paths_per_node_pair) > max_paths_per_node_pair:
+                max_paths_per_node_pair = len(paths_per_node_pair)
+        
+        return node_pair_paths, max_paths_per_node_pair
+    
+    def get_paths(self, max_hops: int = MAX_HOPS) -> tuple[list[tuple[tuple, int]], int]:
+        """
+        TODO
+        """
+        paths: list[tuple[tuple, int]] = list()
+        max_node_pair_paths = 0
+        for node_pair in self.node_pair_paths:
+            len_node_pair_paths = len(self.node_pair_paths[node_pair])
+            for i in range(len_node_pair_paths):
+                path = self.node_pair_paths[node_pair][i]
+                if len(path) <= max_hops:
+                    paths.append((node_pair, i))
+            if len_node_pair_paths > max_node_pair_paths:
+                max_node_pair_paths = len_node_pair_paths
+        return paths, max_node_pair_paths
 
     def get_shortest_path_between_nodes(self, source_node: str, target_node: str, rs: RandomState = None, seed: int = None) -> list:
         """
@@ -319,14 +364,14 @@ class Network:
         if hops < 0 or hops > MAX_HOPS:
             raise ValueError("Invalid number of hops: {}".format(hops))
         
-        #
+        # If no hops, return source node if it can host requested VNF demand
         if hops == 0:
             node = self.nodes[source_node]
             if node.is_vnf_capable and node.cpu_capacity >= vnf_cpu_demand:
                 return [node]
             return []
         
-        #
+        # Return neighboring nodes of source node within hops that can host requested VNF demand
         node_neighbors = self.nodes_per_hops[source_node][hops]
         vnf_capable_nodes = []
         for node_id in node_neighbors:
