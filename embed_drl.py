@@ -236,15 +236,7 @@ class DRLRun():
     """
     TODO
     """
-    # MAX_VNF_INSTANCES = 1
-
-    MAX_EPISODES = 50_000
-    EPSILON = 1
-    # EPSILON_DECAY = 0.9999
-    EPSILON_DECAY = 0.999
-    MIN_EPSILON = 0.01
-    TARGET_NET_UPDATE_RATE = 100
-
+    # CONSTANTS
     RESULTS_DIR_NAME = "jfstaf_results"
     EPISODE_KEY = "episode"
     LOSS_KEY = "loss"
@@ -253,9 +245,20 @@ class DRLRun():
     AVG_SUCCESS_COST_KEY = "avg_success_cost"
     EPSILON_KEY = "epsilon"
     MAX_AVG_REWARD_KEY = "max_avg_reward"
+    MAX_SUCCESS_RATE_KEY = "max_success_rate"
     MILESTONE_EPISODE = 100
+
+    # PARAMETERS
+    MAX_EPISODES = 25_000
+    EPSILON = 1
+    MIN_EPSILON = 0.01
     MAX_TRAINING_PATIENCE = 10
+    MIN_TRAINING_PATIENCE_SUCCESS = 0.9
     TESTING_EPISODES = 30
+
+    # HYPERPARAMETERS
+    EPSILON_DECAY = 0.9998
+    TARGET_NET_UPDATE_RATE = 400
 
     # def __init__(self, env: DRLEnv, filename: str, max_vnf_instances: int = MAX_VNF_INSTANCES, seed: int = None):
     def __init__(self, env: DRLEnv, filename: str, seed: int = None):
@@ -361,6 +364,7 @@ class DRLRun():
 
         # Run training and return results
         results = self.__run_training(
+            max_episodes=self.MAX_EPISODES,
             epsilon=self.EPSILON,
             epsilon_decay=epsilon_decay,
             min_epsilon=self.MIN_EPSILON,
@@ -369,7 +373,7 @@ class DRLRun():
         print("\tResults:", results)
         return results
     
-    def __run_training(self, max_episodes: int, epsilon: float, epsilon_decay: float, min_epsilon: float, target_net_update_rate: int, file: Any = None, max_patience: int = MAX_TRAINING_PATIENCE) -> dict[str, Any]:
+    def __run_training(self, max_episodes: int, epsilon: float, epsilon_decay: float, min_epsilon: float, target_net_update_rate: int, file: Any = None, max_patience: int = MAX_TRAINING_PATIENCE, min_patience_success: float = MIN_TRAINING_PATIENCE_SUCCESS) -> dict[str, Any]:
         """
         TODO
         """
@@ -379,6 +383,7 @@ class DRLRun():
         sum_success = 0
         sum_success_cost = 0
         max_avg_reward = -math.inf
+        max_success_rate = 0
         patience_counter = 0
 
         # while self.env.iter < max_episodes:
@@ -442,7 +447,7 @@ class DRLRun():
             
             # Every milestone episode, compute and write results
             if episode % self.MILESTONE_EPISODE == 0:
-                average_reward = self.__write_results(
+                average_reward, success_rate = self.__write_results(
                     episode=episode,
                     sum_rewards=sum_rewards,
                     sum_success=sum_success,
@@ -453,27 +458,24 @@ class DRLRun():
                     file=file
                 )
 
-                # average_reward = sum_rewards / self.MILESTONE_EPISODE
-                # success_rate = sum_success / self.MILESTONE_EPISODE
-                # average_success_cost = math.inf if sum_success == 0 else sum_success_cost / sum_success
-                # file.write("{0},{1},{2},{3},{4},{5}\n".format(self.env.iter, loss, average_reward, success_rate, average_success_cost, epsilon))
-
-                # print("Episode {i}: loss = {l}, average reward = {avgr}, success rate = {sr}, average success cost = {avgsc}, epsilon = {e}"
-                #       .format(i=self.env.iter, l=loss, avgr=average_reward, sr=success_rate, avgsc=average_success_cost, e=epsilon))
-
                 # Reset collectors
                 sum_rewards = 0
                 sum_success = 0
                 sum_success_cost = 0
 
-                # Check early stop
+                # Check maximum average reward and update patience counter for early stop
                 if average_reward > max_avg_reward:
                     max_avg_reward = average_reward
                     patience_counter = 0
                 else:
                     patience_counter += 1
                 
-                if patience_counter >= max_patience:
+                # Check maximum success rate
+                if success_rate > max_success_rate:
+                    max_success_rate = success_rate
+                
+                # Check for early stop
+                if (max_success_rate >= min_patience_success) and (patience_counter >= max_patience):
                     break
             
             # Update epsilon
@@ -481,6 +483,7 @@ class DRLRun():
         
         return {
             self.MAX_AVG_REWARD_KEY: max_avg_reward,
+            self.MAX_SUCCESS_RATE_KEY: max_success_rate,
             self.EPISODE_KEY: episode
             }
     
@@ -541,7 +544,7 @@ class DRLRun():
         # print("Testing episodes {e}: average reward = {r}, success rate = {s}, success reward rate = {sr}"
         #         .format(e=self.TESTING_EPISODES, r=average_reward, s=success_rate, sr=average_candidates_cost))
 
-    def __write_results(self, episode: int, sum_rewards: float, sum_success: int, sum_success_cost: float, num_episodes: int, loss: float = 0, epsilon: float = 0, file: Any = None) -> int:
+    def __write_results(self, episode: int, sum_rewards: float, sum_success: int, sum_success_cost: float, num_episodes: int, loss: float = 0, epsilon: float = 0, file: Any = None) -> tuple[float, float]:
         """
         TODO
         """
@@ -556,4 +559,4 @@ class DRLRun():
         if file is not None:
             file.write("{0},{1},{2},{3},{4},{5}\n".format(episode, loss, average_reward, success_rate, average_success_cost, epsilon))
         
-        return average_reward
+        return average_reward, success_rate

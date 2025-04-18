@@ -41,6 +41,7 @@ class DQN:
     """
     TODO
     """
+    # CONSTANTS
     STATE_KEY = "state"
     ACTION_KEY = "action"
     REWARD_KEY = "reward"
@@ -48,12 +49,11 @@ class DQN:
     NEXT_ACTION_MASK_KEY = "next_action_mask"
     DONE_KEY = "done"
 
-    HIDDEN_LAYERS = [200, 200]
-    DISCOUNT_FACTOR = 0.99
+    # HYPERPARAMETERS
+    HIDDEN_LAYERS = [128, 128]
+    DISCOUNT_FACTOR = 0.95
     MAX_EXPERIENCES = 10_000
-    # BATCH_SIZE = 32
     BATCH_SIZE = 64
-    # LEARNING_RATE = 1e-2
     LEARNING_RATE = 1e-3
 
     def __init__(self, len_state: int, len_action: int, hidden_layers: "list[int]" = HIDDEN_LAYERS, discount_factor: float = DISCOUNT_FACTOR, max_experiences: int = MAX_EXPERIENCES, batch_size: int = BATCH_SIZE, learning_rate: float = LEARNING_RATE, seed: int = None):
@@ -132,7 +132,6 @@ class DQN:
         # Get random batch of experiences
         batch = self.rs.choice(self.replay_data, size=self.batch_size, replace=False)
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_dones = list(), list(), list(), list(), list()
-        # for sample in self.replay_data:
         for sample in batch:
             batch_states.append(sample[self.STATE_KEY])
             batch_actions.append(sample[self.ACTION_KEY])
@@ -144,8 +143,7 @@ class DQN:
         states = np.array(batch_states)
         actions = np.array(batch_actions)
         rewards = np.array(batch_rewards)
-        # rewards = self.scale(rewards, 27, -900)
-        # rewards = rewards / 10 # scale works well
+        # rewards = rewards / 10
         next_states = np.array(batch_next_states)
         dones = np.array(batch_dones)
 
@@ -166,21 +164,21 @@ class DQN:
         self.optimizer.apply_gradients(zip(gradients, variables))
         return loss.numpy()
     
-    @staticmethod
-    def convert2_scalar(actions: "np.ndarray"):
-        scalars = []
-        for action in actions:
-            if np.isscalar(action):
-                scalar = action
-            else:
-                a = action[0]
-                b = action[1]
-                scalar = a*15 + b
-            scalars.append(scalar)
-        return scalars
+    # @staticmethod
+    # def convert2_scalar(actions: "np.ndarray"):
+    #     scalars = []
+    #     for action in actions:
+    #         if np.isscalar(action):
+    #             scalar = action
+    #         else:
+    #             a = action[0]
+    #             b = action[1]
+    #             scalar = a*15 + b
+    #         scalars.append(scalar)
+    #     return scalars
     
-    @staticmethod
-    def scale(data: np.ndarray, max_value: float, min_value: float = 0):
-        # data_std = (data - min_value) / (max_value - min_value)
-        # return data_std * 10 - 5
-        return (100 * (data - min_value) / (max_value - min_value)) - 50
+    # @staticmethod
+    # def scale(data: np.ndarray, max_value: float, min_value: float = 0):
+    #     # data_std = (data - min_value) / (max_value - min_value)
+    #     # return data_std * 10 - 5
+    #     return (100 * (data - min_value) / (max_value - min_value)) - 50

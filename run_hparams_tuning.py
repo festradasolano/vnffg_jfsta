@@ -6,7 +6,6 @@ from vnfr import build_random_vnfr
 
 from ax.service.ax_client import AxClient, ObjectiveProperties
 import os
-import pandas as pd
 from pathlib import Path
 import sys
 
@@ -14,32 +13,31 @@ import sys
 # SETTINGS
 AX_EXPERIMENT_NAME = "embed_drl_jfsta"
 AX_VERBOSE = False
-NUM_TRIALS = 50
-# NUM_TRIALS = 2
-SEED = 1
-NUM_VNFS = 10
+NUM_TRIALS = 30
+SEED = 1000
+NUM_VNFS = 4
 
+# =============================
 # Build random network and VNFR
+# =============================
 network = build_random_network(seed=SEED)
 vnfr = build_random_vnfr(
     nodes_id=network.get_nodes_id(),
     num_vnfs=NUM_VNFS, seed=SEED
 )
 
-# Check maximum delay
-if vnfr.vnfs_delay >= vnfr.max_delay:
-    print("\nTERMINATING: VNFs delay is greater than maximum delay; no possibility for improvement.")
-    sys.exit(0)
-
 # Print VNFR information
 print()
 print("VNFR")
 print("\tMin throughput =", vnfr.min_throughput)
 print("\tMax delay =", vnfr.max_delay)
-
-print("\tVNFS:", vnfr.vnfs)
 print("\tDependencies:", vnfr.dependencies)
 print("\tDependants:", vnfr.dependants)
+
+# Check maximum delay
+if vnfr.vnfs_delay >= vnfr.max_delay:
+    print("\nTERMINATING: VNFs delay is greater than maximum delay; no possibility for improvement.")
+    sys.exit(0)
 
 # ===========================
 # Build random embedding (M1)
@@ -57,12 +55,6 @@ print("Random Embedding")
 print("\tThroughput =", random_embed.throughput)
 print("\tDelay =", random_embed.delay)
 print("\tVNFFG:", random_embed.vnffg)
-# print()
-# print("\tEmbedding VNFs:", random_embed.embedding_vnfs)
-# print()
-# print("\tAllocated Node CPUs:", random_embed.allocated_node_cpus)
-# print()
-# print("\tAllocated Link BWs:", random_embed.allocated_link_bws)
 
 # Check M1 does not meet QoS requirements
 if (random_embed.throughput >= vnfr.min_throughput) and (random_embed.delay <= vnfr.max_delay):
@@ -127,7 +119,10 @@ ax_client = AxClient(
 ax_client.create_experiment(
     name=AX_EXPERIMENT_NAME,
     parameters=hparams,
-    objectives={DRLRun.MAX_AVG_REWARD_KEY: ObjectiveProperties(minimize=False)}
+    objectives={
+        DRLRun.MAX_AVG_REWARD_KEY: ObjectiveProperties(minimize=False),
+        DRLRun.MAX_SUCCESS_RATE_KEY: ObjectiveProperties(minimize=False),
+    }
 )
 
 # Perform trials to optimize hyperparameters
@@ -154,12 +149,7 @@ while True:
         raw_data=results,
     )
 
-# Print best parameters
-best_parameters, values = ax_client.get_best_parameters()
-print("--- Best parameters ---\n", best_parameters)
-
 # Export all existing trials
-# df = ax_client.generation_strategy.trials_as_df
 df = ax_client.get_trials_data_frame()
 path_results_dir = "{0}/{1}".format(str(Path.home()), DRLRun.RESULTS_DIR_NAME)
 if not os.path.exists(path_results_dir):
